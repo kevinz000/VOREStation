@@ -12,4 +12,6 @@
 var/global/list/runlevel_flags = list(RUNLEVEL_LOBBY, RUNLEVEL_SETUP, RUNLEVEL_GAME, RUNLEVEL_POSTGAME)
 #define RUNLEVEL_FLAG_TO_INDEX(flag) (log(2, flag) + 1)	// Convert from the runlevel bitfield constants to index in runlevel_flags list
 
+// Order of initialization. Higher numbers are initialized first, lower numbers later. Can be decimal or negative.
 #define INIT_ORDER_LIGHTING 0
+#define INIT_ORDER_AIR -1

@@ -80,10 +80,6 @@ Class Procs:
 /datum/controller/air_system/var/active_zones = 0
 
 /datum/controller/air_system/var/current_cycle = 0
-/datum/controller/air_system/var/update_delay = 5 //How long between check should it try to process atmos again.
-/datum/controller/air_system/var/failed_ticks = 0 //How many ticks have runtimed?
-
-/datum/controller/air_system/var/tick_progress = 0
 
 /datum/controller/air_system/var/next_id = 1 //Used to keep track of zone UIDs.
 
@@ -95,11 +91,10 @@ Class Procs:
 	//Outputs: None.
 
 	#ifndef ZASDBG
-	set background = 1
+	set background = BACKGROUND_ENABLED
 	#endif
 
 	admin_notice("<span class='danger'>Processing Geometry...</span>", R_DEBUG)
-	sleep(-1)
 
 	var/start_time = world.timeofday
 
@@ -108,6 +103,7 @@ Class Procs:
 	for(var/turf/simulated/S in world)
 		simulated_turf_count++
 		S.update_air_properties()
+		CHECK_TICK
 
 	admin_notice({"<span class='danger'>Geometry initialized in [round(0.1*(world.timeofday-start_time),0.1)] seconds.</span>
 <span class='info'>
@@ -118,117 +114,14 @@ Total Active Edges: [active_edges.len ? "<span class='danger'>[active_edges.len]
 Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_count]
 </span>"}, R_DEBUG)
 
-
-//	spawn Start()
-
-
-/datum/controller/air_system/proc/Start()
-	//Purpose: This is kicked off by the master controller, and controls the processing of all atmosphere.
-	//Called by: Master controller
-	//Inputs: None.
-	//Outputs: None.
-
-	#ifndef ZASDBG
-	set background = 1
-	#endif
-
-	while(1)
-		Tick()
-		sleep(max(5,update_delay*tick_multiplier))
-
-
-/datum/controller/air_system/proc/Tick()
-	. = 1 //Set the default return value, for runtime detection.
-
-	current_cycle++
-
-	//If there are tiles to update, do so.
-	tick_progress = "updating turf properties"
-
-	var/list/updating
-
-	if(tiles_to_update.len)
-		updating = tiles_to_update
-		tiles_to_update = list()
-
-		#ifdef ZASDBG
-		var/updated = 0
-		#endif
-
-		//defer updating of self-zone-blocked turfs until after all other turfs have been updated.
-		//this hopefully ensures that non-self-zone-blocked turfs adjacent to self-zone-blocked ones
-		//have valid zones when the self-zone-blocked turfs update.
-
-		//This ensures that doorways don't form their own single-turf zones, since doorways are self-zone-blocked and
-		//can merge with an adjacent zone, whereas zones that are formed on adjacent turfs cannot merge with the doorway.
-		var/list/deferred = list()
-
-		for(var/turf/T in updating)
-			//check if the turf is self-zone-blocked
-			if(T.c_airblock(T) & ZONE_BLOCKED)
-				deferred += T
-				continue
-
-			T.update_air_properties()
-			T.post_update_air_properties()
-			T.needs_air_update = 0
-			#ifdef ZASDBG
-			T.overlays -= mark
-			updated++
-			#endif
-			//sleep(1)
-
-		for(var/turf/T in deferred)
-			T.update_air_properties()
-			T.post_update_air_properties()
-			T.needs_air_update = 0
-			#ifdef ZASDBG
-			T.overlays -= mark
-			updated++
-			#endif
-
-		#ifdef ZASDBG
-		if(updated != updating.len)
-			tick_progress = "[updating.len - updated] tiles left unupdated."
-			world << "<span class='danger'>[tick_progress]</span>"
-			. = 0
-		#endif
-
-	//Where gas exchange happens.
-	if(.)
-		tick_progress = "processing edges"
-
-	for(var/connection_edge/edge in active_edges)
-		edge.tick()
-
-	//Process fire zones.
-	if(.)
-		tick_progress = "processing fire zones"
-
-	for(var/zone/Z in active_fire_zones)
-		Z.process_fire()
-
-	//Process hotspots.
-	if(.)
-		tick_progress = "processing hotspots"
-
-	for(var/obj/fire/fire in active_hotspots)
-		fire.process()
-
-	//Process zones.
-	if(.)
-		tick_progress = "updating zones"
-
-	active_zones = zones_to_update.len
-	if(zones_to_update.len)
-		updating = zones_to_update
-		zones_to_update = list()
-		for(var/zone/zone in updating)
-			zone.tick()
-			zone.needs_update = 0
-
-	if(.)
-		tick_progress = "success"
+	// Maps should not have active edges on boot.  If we've got some, log it so it can get fixed.
+	if(active_edges.len)
+		var/list/edge_log = list()
+		for(var/connection_edge/E in active_edges)
+			edge_log += "Active Edge [E] ([E.type])"
+			for(var/turf/T in E.connecting_turfs)
+				edge_log += "+--- Connecting Turf [T] @ [T.x], [T.y], [T.z]"
+		log_debug("Active Edges on ZAS Startup\n" + edge_log.Join("\n"))
 
 /datum/controller/air_system/proc/add_zone(zone/z)
 	zones.Add(z)
