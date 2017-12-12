@@ -141,6 +141,9 @@
 /area/tether/surfacebase/security/hallway
 	name = "\improper Surface Checkpoint Hallway"
 
+/area/tether/surfacebase/vrpods
+	name = "\improper VR Lounge"
+	icon_state = "red"
 
 /area/engineering/atmos/processing
 	name = "Atmospherics Processing"
