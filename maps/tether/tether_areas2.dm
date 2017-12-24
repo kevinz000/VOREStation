@@ -426,6 +426,11 @@
 	base_turf = /turf/simulated/floor/outdoors/dirt/virgo3b
 
 
+// VEE ARRRRR
+/area/vr
+	name = "\improper Virtual Reality"
+	requires_power = 0
+	dynamic_lighting = 0
 
 // Exclude some more areas from the atmos leak event so people don't get trapped when spawning.
 /datum/event/atmos_leak/setup()
